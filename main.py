@@ -1,4 +1,3 @@
-
 """
 AutoClicker for Blum airdrop mini-game
 """
@@ -8,10 +7,11 @@ import time
 import dxcam  # high-performance screenshot library
 import mouse
 import keyboard 
-import win32gui
-import ctypes
 from time import sleep
 import os
+import pygetwindow as gw
+from pynput.keyboard import Key, Controller
+import time
 
 from constants import APPLICATION_TRIGGER, COLOR_TRIGGERS, PIXELS_PER_ITERATION, \
 						NEW_GAME_TRIGGER_POS, APPLICATION_NAME
@@ -26,31 +26,36 @@ def exit_program():
 
 
 def prepare_app() -> tuple[int]:
-	""" Top up window and return its bbox """
-	windows_list = []
+    """Top up window and return its bbox"""
+    # Get all windows with the specified application name
+    windows_list = [window for window in gw.getAllWindows() if APPLICATION_NAME in window.title]
 
-	def _window_enum_callback(hwnd:int, extra) -> (int | None):
-		# Get the window title
-		title = win32gui.GetWindowText(hwnd)
-		windows_list.append((hwnd, title))
-	
-	win32gui.EnumWindows(_window_enum_callback, None)
+    if not windows_list:
+        return None  # No application found
 
-	applications = [(hwnd, title) for hwnd, title in windows_list if APPLICATION_NAME in title]
+    # Just grab the first window matching
+    application = windows_list[0]
+    
+    # Simulate pressing the Alt key
+    keyboard = Controller()
+    
+    # Press the Alt key
+    keyboard.press(Key.alt)
 
-	# just grab the hwnd for first window matching
-	application = applications[0]
-	hwnd = application[0]
+	# Bring the window to the foreground
+    application.activate()  # This method brings the window to the front
+    
+	# Release the Alt key
+    keyboard.release(Key.alt)
 
-	# Simulate pressing the Alt key
-	ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)  # Press Alt
-	win32gui.SetForegroundWindow(hwnd)
-	ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)  # Release Alt
-	return win32gui.GetWindowRect(hwnd)
+    # Return the bounding box of the window
+    return application.left, application.top, application.right, application.bottom
 
-
-def check_running(frame, application_bbox:tuple[int]) -> bool:
+def check_running(frame, application_bbox) -> bool:
 	""" Check if game is running by scanning color on timer positions """
+
+	if not application_bbox:
+		return False
 
 	for x, y in APPLICATION_TRIGGER['positions']:
 		left, top, right, bottom = application_bbox
